@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Manager Mockup</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        .file-item {
+            background: rgba(255,255,255,0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border: 1px solid transparent;
+            transition: 0.2s;
+        }
+        .file-item:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--accent-cyan);
+            cursor: pointer;
+        }
+        .file-icon { font-size: 2rem; }
+        .file-info h4 { margin-bottom: 0.25rem; font-size: 0.9rem; }
+        .file-info p { font-size: 0.75rem; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <div class="mockup-container">
+        <div class="window-header">
+            <div class="mac-dot red"></div>
+            <div class="mac-dot yellow"></div>
+            <div class="mac-dot green"></div>
+            <span class="window-title">STORAGE MANAGER — MULTI CLOUD</span>
+        </div>
+        <div class="content-area">
+            <div class="header-section">
+                <h1>Cloud Proxy</h1>
+                <p>Google Drive & MEGA dalam Satu Tampilan</p>
+            </div>
+            
+            <div class="glass-card" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h3>GDrive Utama</h3>
+                    <p style="font-size:0.8rem; color:var(--text-secondary)">12 GB / 15 GB Terpakai</p>
+                </div>
+                <span class="badge badge-active">Tersambung</span>
+            </div>
+
+            <div class="file-grid">
+                <div class="file-item">
+                    <span class="file-icon">📁</span>
+                    <div class="file-info">
+                        <h4>Project Rahasia</h4>
+                        <p>2 Items</p>
+                    </div>
+                </div>
+                <div class="file-item">
+                    <span class="file-icon">📄</span>
+                    <div class="file-info">
+                        <h4>.env.backup</h4>
+                        <p>12 KB</p>
+                    </div>
+                </div>
+                <div class="file-item" style="border-color: var(--accent-purple); background: rgba(139, 92, 246, 0.1);">
+                    <span class="file-icon">🎥</span>
+                    <div class="file-info">
+                        <h4>Video_Tutor.mp4</h4>
+                        <p>1.2 GB • Direct Link Active</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

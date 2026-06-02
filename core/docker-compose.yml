@@ -1,0 +1,237 @@
+# =============================================================================
+# core/docker-compose.yml — Orkestrasi Digital Brain v2
+# =============================================================================
+
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NETWORKS
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  secure:
+    driver: bridge
+    internal: true   # Tidak ada akses internet!
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VOLUMES
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  qwen_models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/myserver/models
+  logs_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/myserver/logs
+  storage_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/myserver/data/storage
+  monitor_data:
+    driver: local
+  chroma_data:
+    driver: local
+
+# =============================================================================
+# SERVICES
+# =============================================================================
+services:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # PERFORMANCE CORES (4-7) — AI & ML INFERENCE
+  # ───────────────────────────────────────────────────────────────────────────
+  ai-router:
+    build:
+      context: ../services/ai-router
+    container_name: ai-router
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:${AI_ROUTER_PORT:-8080}:8080"
+    volumes:
+      - ../services/ai-router/providers.yml:/app/providers.yml:ro
+      - ../docs/STYLE_GUIDE.md:/app/STYLE_GUIDE.md:ro
+      - logs_data:/app/logs
+    networks:
+      - frontend
+      - backend
+    cpuset: "4-7"     # Cortex-A76 Performance Cores
+    mem_limit: 256m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options: { "max-size": "50m", "max-file": "5" }
+
+  qwen-local:
+    build:
+      context: ../services/qwen-local
+    container_name: qwen-local
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:${QWEN_PORT:-11434}:11434"
+    volumes:
+      - qwen_models:/models
+      - logs_data:/app/logs
+    networks:
+      - secure
+      - backend
+    cpuset: "4-7"     # Cortex-A76 Performance Cores
+    mem_limit: 2048m
+    cpus: "2.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/health"]
+      interval: 60s
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options: { "max-size": "100m", "max-file": "3" }
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # EFFICIENCY CORES (2-3) — WEB & DATA
+  # ───────────────────────────────────────────────────────────────────────────
+  storage-manager:
+    build:
+      context: ../services/storage-manager
+    container_name: storage-manager
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - storage_data:/data
+      - logs_data:/app/logs
+      - /root/.config/rclone:/root/.config/rclone:ro
+      - ../services/storage-manager/categories.yml:/app/categories.yml:ro
+    ports:
+      - "127.0.0.1:${STORAGE_MANAGER_PORT:-8090}:8090"
+    networks:
+      - frontend
+      - backend
+    cpuset: "2-3"
+    mem_limit: 128m
+    cpus: "0.5"
+    logging:
+      driver: "json-file"
+      options: { "max-size": "30m", "max-file": "3" }
+
+  web-interface:
+    build:
+      context: ../services/web-interface
+    container_name: web-interface
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    networks:
+      - frontend
+    depends_on:
+      - ai-router
+      - storage-manager
+    cpuset: "2-3"
+    mem_limit: 128m
+    cpus: "0.3"
+    logging:
+      driver: "json-file"
+      options: { "max-size": "20m", "max-file": "3" }
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:80:80"
+    volumes:
+      - ../configs/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - logs_data:/var/log/nginx
+    networks:
+      - frontend
+    depends_on:
+      - web-interface
+    cpuset: "2-3"
+    mem_limit: 64m
+    cpus: "0.2"
+    logging:
+      driver: "json-file"
+      options: { "max-size": "20m", "max-file": "3" }
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # EFFICIENCY CORES (0-1) — BACKGROUND, BOTS & MONITORING
+  # ───────────────────────────────────────────────────────────────────────────
+  monitoring:
+    build:
+      context: ../services/monitoring
+    container_name: monitoring
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - monitor_data:/data
+      - logs_data:/app/logs
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    networks:
+      - frontend
+      - backend
+    cpuset: "0-1"
+    mem_limit: 128m
+    cpus: "0.2"
+
+  vector-db:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    restart: unless-stopped
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - backend
+    cpuset: "0-1"
+    mem_limit: 256m
+    cpus: "0.5"
+
+  osint-scraper:
+    build:
+      context: ../services/osint-scraper
+    container_name: osint-scraper
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - backend
+    cpuset: "0-1"
+    mem_limit: 128m
+    cpus: "0.5"
+
+  alert-bot:
+    build:
+      context: ../services/alert-bot
+    container_name: alert-bot
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - backend
+    cpuset: "0-1"
+    mem_limit: 64m
+    cpus: "0.2"
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 300 --cleanup
+    cpuset: "0-1"
+    mem_limit: 64m
+    cpus: "0.1"

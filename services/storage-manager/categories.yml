@@ -1,0 +1,57 @@
+# =============================================================================
+# categories.yml — Aturan auto-kategorisasi file
+# Saat upload file baru, sistem akan otomatis memilih folder kategori
+# =============================================================================
+
+rules:
+  # Dokumen
+  - pattern: "*.pdf|*.doc|*.docx|*.xls|*.xlsx|*.ppt|*.pptx|*.odt|*.ods"
+    category: "documents"
+
+  # Gambar
+  - pattern: "*.jpg|*.jpeg|*.png|*.gif|*.bmp|*.webp|*.svg|*.ico|*.tiff|*.raw"
+    category: "images"
+
+  # Video
+  - pattern: "*.mp4|*.mkv|*.avi|*.mov|*.wmv|*.flv|*.webm|*.m4v|*.3gp"
+    category: "videos"
+
+  # Audio
+  - pattern: "*.mp3|*.wav|*.flac|*.aac|*.ogg|*.m4a|*.wma|*.opus"
+    category: "audio"
+
+  # Kode & Script
+  - pattern: "*.py|*.js|*.ts|*.go|*.rs|*.java|*.c|*.cpp|*.h|*.cs|*.rb|*.php|*.swift|*.kt|*.sh|*.bash|*.zsh|*.fish"
+    category: "code"
+
+  # Web
+  - pattern: "*.html|*.css|*.scss|*.sass|*.svelte|*.vue|*.jsx|*.tsx"
+    category: "code/web"
+
+  # Config & Environment (SENSITIF — jangan simpan di cloud publik!)
+  - pattern: "*.env|*.env.*|*.conf|*.config|*.cfg|*.ini|*.toml|*.yaml|*.yml"
+    category: "configs"
+
+  # Archives
+  - pattern: "*.zip|*.tar|*.tar.gz|*.tgz|*.rar|*.7z|*.bz2|*.xz|*.gz"
+    category: "archives"
+
+  # Database
+  - pattern: "*.sql|*.db|*.sqlite|*.sqlite3|*.dump"
+    category: "databases"
+
+  # Text
+  - pattern: "*.txt|*.md|*.rst|*.log|*.csv|*.json|*.xml"
+    category: "text"
+
+  # APK & Mobile
+  - pattern: "*.apk|*.ipa|*.aab"
+    category: "apps"
+
+  # Font
+  - pattern: "*.ttf|*.otf|*.woff|*.woff2|*.eot"
+    category: "fonts"
+
+  # Default (tidak cocok kategori apapun)
+  - pattern: "*"
+    category: "others"

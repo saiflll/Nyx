@@ -1,0 +1,56 @@
+# =============================================================================
+# ai-router providers.yml
+# =============================================================================
+
+# Default config. Akan dioverride oleh multi-account dari .env
+providers:
+  # PERFORMANCE & GENERAL (Cortex-A76)
+  - nama: groq
+    url: "https://api.groq.com/openai/v1/chat/completions"
+    model_default: "llama-3.3-70b-versatile"
+    priority: 1
+    batas_rpm: 30
+    jns_task: ["coding", "general", "fast"]
+    env_key: "GROQ_API_KEYS"
+
+  - nama: cerebras
+    url: "https://api.cerebras.ai/v1/chat/completions"
+    model_default: "llama3.1-70b"
+    priority: 2
+    batas_rpm: 30
+    jns_task: ["fast", "reasoning"]
+    env_key: "CEREBRAS_API_KEYS"
+
+  - nama: openrouter
+    url: "https://openrouter.ai/api/v1/chat/completions"
+    model_default: "anthropic/claude-3.5-sonnet:beta"
+    priority: 3
+    batas_rpm: 20
+    jns_task: ["coding", "reasoning", "general"]
+    env_key: "OPENROUTER_API_KEYS"
+
+  - nama: gemini
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    model_default: "gemini-2.5-pro"
+    priority: 4
+    batas_rpm: 15
+    jns_task: ["reasoning", "long_context"]
+    env_key: "GEMINI_API_KEYS"
+
+  - nama: deepseek
+    url: "https://api.deepseek.com/chat/completions"
+    model_default: "deepseek-coder"
+    priority: 5
+    batas_rpm: 20
+    jns_task: ["coding"]
+    env_key: "DEEPSEEK_API_KEYS"
+
+  # LOCAL QWEN (TIDAK BUTUH INTERNET)
+  - nama: qwen-local
+    url: "http://qwen-local:11434/v1/chat/completions"
+    model_default: "Qwen2.5-1.5B"
+    priority: 0
+    batas_rpm: 999
+    is_local: true
+    jns_task: ["sensitive"]
+    env_key: "QWEN_ACCESS_SECRET"

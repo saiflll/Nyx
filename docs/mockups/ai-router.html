@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Router Mockup</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .router-visual {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 2rem 0;
+            padding: 2rem;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            position: relative;
+        }
+        .node {
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            background: var(--bg-card);
+            border: 1px solid var(--accent-cyan);
+            z-index: 2;
+        }
+        .node.target { border-color: var(--accent-purple); }
+        .node.local { border-color: var(--accent-green); }
+        
+        .connection {
+            flex-grow: 1;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+            position: relative;
+            overflow: hidden;
+        }
+        .connection::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 50%; height: 100%;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 0 10px #fff;
+            animation: pulse-line 1.5s infinite linear;
+        }
+        @keyframes pulse-line {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        .log-box {
+            background: #000;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #0f0;
+            height: 150px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="mockup-container">
+        <div class="window-header">
+            <div class="mac-dot red"></div>
+            <div class="mac-dot yellow"></div>
+            <div class="mac-dot green"></div>
+            <span class="window-title">AI ROUTER — STATE MACHINE</span>
+        </div>
+        <div class="content-area">
+            <div class="header-section">
+                <h1>AI Orchestrator</h1>
+                <p>Routing Cerdas, Load Balancing, & Failover Otomatis</p>
+            </div>
+            
+            <div class="router-visual">
+                <div class="node">
+                    <h3>Incoming</h3>
+                    <p style="font-size:0.8rem; color:var(--text-secondary)">VSCode Request</p>
+                    <span class="badge badge-active" style="margin-top:8px;display:inline-block">coding</span>
+                </div>
+                <div class="connection"></div>
+                <div class="node target">
+                    <h3>Gemini Pro</h3>
+                    <p style="font-size:0.8rem; color:var(--text-secondary)">Limit Reached (429)</p>
+                    <span class="badge badge-warning" style="margin-top:8px;display:inline-block">Failover</span>
+                </div>
+                <div class="connection" style="background: linear-gradient(90deg, var(--accent-purple), var(--accent-green))"></div>
+                <div class="node local">
+                    <h3>Deepseek</h3>
+                    <p style="font-size:0.8rem; color:var(--text-secondary)">Processing...</p>
+                    <span class="badge badge-active" style="margin-top:8px;display:inline-block">Active</span>
+                </div>
+            </div>
+
+            <div class="log-box">
+                [ROUTER] Job ID: 8f9a-11e2<br>
+                [ROUTER] Tipe Task terdeteksi: 'coding'<br>
+                [ROUTER] Memilih provider: Gemini Pro (Key Index 1)<br>
+                [ERROR] Gemini Pro 429 Too Many Requests<br>
+                [ROUTER] Trigger Failover. Context diamankan.<br>
+                [ROUTER] Mengalihkan ke Deepseek-Coder...<br>
+                [ROUTER] 🟢 Stream Response dimulai...
+            </div>
+        </div>
+    </div>
+</body>
+</html>
