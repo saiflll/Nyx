@@ -1,12 +1,11 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
 
-  // --- Types ---
   interface Metrics {
     timestamp: number;
     cpu: { usage_percent: number; temp_celsius: number };
     memory: { total_kb: number; used_kb: number; usage_percent: number };
-    disk: { total_kb: number; used_kb: number; usage_percent: number };
+    disk: { total_kb: number; used_kb: number; free_kb: number; usage_percent: number };
     network: { rx_bytes_per_sec: number; tx_bytes_per_sec: number };
     logs: { total_size_mb: number; max_allowed_mb: number };
   }
@@ -14,18 +13,18 @@
   interface ServiceStatus {
     name: string;
     healthy: boolean;
+    enabled: boolean;
     has_api_key: boolean;
+    is_local?: boolean;
     usage: { requests_today: number; tokens_today: number };
   }
 
-  // --- State ---
   let dt_metrics: Metrics | null = null;
   let dftr_srv: ServiceStatus[] = [];
   let dftr_smpn: any[] = [];
   let agentic_skills: string[] = [];
   let smbr_ev: EventSource | null = null;
   let wkt_akhir = '';
-  let uptime = 0;
 
   const fmt_ukrn_byte = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B/s`;
@@ -40,47 +39,36 @@
   };
 
   const ambl_wrna_sts = (pct: number) => {
-    if (pct > 90) return 'var(--accent-danger)';
-    if (pct > 70) return 'var(--accent-warning)';
-    return 'var(--accent-success)';
+    if (pct > 90) return 'var(--crimson-400, #dc2626)';
+    if (pct > 70) return '#f59e0b';
+    return '#22c55e';
   };
 
   onMount(async () => {
-    // Load AI providers status
     try {
       const res = await fetch('/api/ai/providers');
       const data = await res.json();
       dftr_srv = data.providers || [];
-    } catch (e) {
-      console.error('Failed to load providers', e);
-    }
+    } catch (e) {}
 
-    // Load storage accounts
     try {
       const res = await fetch('/api/storage/accounts');
       const data = await res.json();
       dftr_smpn = data.accounts || [];
-    } catch (e) {
-      console.error('Failed to load storage', e);
-    }
+    } catch (e) {}
 
-    // Load agentic skills
     try {
       const res = await fetch('/api/skills');
       const data = await res.json();
       agentic_skills = (data.skills || []).map((s: any) => s.name);
-    } catch (e) {
-      console.log('No agentic skills loaded');
-    }
+    } catch (e) {}
 
-    // Real-time dt_metrics via SSE
     smbr_ev = new EventSource('/api/monitor/stream');
     smbr_ev.onmessage = (e) => {
       dt_metrics = JSON.parse(e.data);
       wkt_akhir = new Date().toLocaleTimeString('id-ID');
     };
     smbr_ev.onerror = () => {
-      // Fallback: polling biasa
       mt_metrics();
     };
   });
@@ -96,28 +84,27 @@
     smbr_ev?.close();
   });
 
-  // Stat cards data dari dt_metrics
   $: dftr_stat = dt_metrics ? [
     {
       label: 'CPU',
       value: `${dt_metrics.cpu.usage_percent}%`,
       sub: `${dt_metrics.cpu.temp_celsius}°C`,
       pct: dt_metrics.cpu.usage_percent,
-      icon: '⬡',
+      icon: '▣',
     },
     {
       label: 'RAM',
       value: fmt_ukrn_kb(dt_metrics.memory.used_kb),
-      sub: `dari ${fmt_ukrn_kb(dt_metrics.memory.total_kb)}`,
+      sub: `/ ${fmt_ukrn_kb(dt_metrics.memory.total_kb)}`,
       pct: dt_metrics.memory.usage_percent,
       icon: '◈',
     },
     {
-      label: 'Storage',
+      label: 'Disk',
       value: `${dt_metrics.disk.usage_percent}%`,
       sub: `${fmt_ukrn_kb(dt_metrics.disk.free_kb)} free`,
       pct: dt_metrics.disk.usage_percent,
-      icon: '⬢',
+      icon: '⊞',
     },
     {
       label: 'Network ↑',
@@ -128,25 +115,23 @@
     },
   ] : [];
 
-  // Provider counts
   $: jml_aktif = dftr_srv.filter(s => s.enabled && s.healthy).length;
   $: jml_total = dftr_srv.length;
 </script>
 
 <svelte:head>
-  <title>Dashboard — MyServer</title>
+  <title>Dashboard — Nyx</title>
 </svelte:head>
 
 <div class="dashboard animate-slide-up">
-  <!-- Header -->
   <div class="page-header">
     <div>
       <h1>Dashboard</h1>
-      <p class="text-secondary">Redmi Note 10S · AI Agent Server</p>
+      <p class="sub-label">nyxCore · System Overview</p>
     </div>
     <div class="header-right">
       {#if wkt_akhir}
-        <span class="mono text-muted" style="font-size:0.75rem;">Update: {wkt_akhir}</span>
+        <span class="mono" style="font-size:0.72rem; color:#4b5563;">Updated {wkt_akhir}</span>
       {/if}
       <div class="badge badge-success">
         <span class="status-dot online"></span>
@@ -161,11 +146,11 @@
       {#each dftr_stat as card}
         <div class="card stat-card">
           <div class="stat-top">
-            <span class="stat-icon gradient-text">{card.icon}</span>
+            <span class="stat-icon">{card.icon}</span>
             <span class="stat-label">{card.label}</span>
           </div>
           <div class="stat-value">{card.value}</div>
-          <div class="stat-sub text-muted">{card.sub}</div>
+          <div class="stat-sub">{card.sub}</div>
           {#if card.pct > 0}
             <div class="progress-bar" style="margin-top: 0.75rem;">
               <div
@@ -180,19 +165,19 @@
       {/each}
     </div>
   {:else}
-    <div class="loading-placeholder">
+    <div class="loading-state">
       <div class="spinner"></div>
-      <span>Memuat dt_metrics...</span>
+      <span style="color:#4b5563; font-size:0.875rem;">Connecting to nyxAgent...</span>
     </div>
   {/if}
 
   <!-- Main Grid -->
   <div class="main-grid">
-    <!-- AI Providers -->
+    <!-- Providers -->
     <div class="card">
       <div class="flex justify-between items-center" style="margin-bottom: 1rem;">
-        <h3>AI Providers</h3>
-        <div class="badge badge-info">{jml_aktif}/{jml_total} aktif</div>
+        <h3>Providers</h3>
+        <div class="badge badge-navy">{jml_aktif}/{jml_total} active</div>
       </div>
       <div class="providers-list">
         {#each dftr_srv.slice(0, 8) as svc}
@@ -201,53 +186,54 @@
               <span class="status-dot" class:online={svc.enabled && svc.healthy} class:offline={!svc.enabled || !svc.healthy}></span>
               <span class="provider-name">{svc.name}</span>
               {#if svc.is_local}
-                <span class="badge badge-info" style="font-size:0.65rem;">lokal</span>
-                <span class="badge" style="font-size:0.65rem; background:rgba(139,92,246,0.2); color:var(--purple); border:1px solid var(--purple)">❄️ paused</span>
+                <span class="badge badge-navy" style="font-size:0.62rem;">local</span>
               {/if}
             </div>
             <div class="flex items-center gap-2">
               {#if svc.usage.requests_today > 0}
-                <span class="mono text-muted" style="font-size:0.75rem;">{svc.usage.requests_today} req</span>
+                <span class="mono" style="font-size:0.72rem; color:#4b5563;">{svc.usage.requests_today} req</span>
               {/if}
               {#if !svc.has_api_key}
-                <span class="badge badge-warning" style="font-size:0.65rem;">no key</span>
+                <span class="badge badge-warning" style="font-size:0.62rem;">no key</span>
               {/if}
             </div>
           </div>
         {/each}
       </div>
-      
-      <div class="flex justify-between items-center" style="margin-bottom: 0.75rem; margin-top: 1.5rem;">
-        <h3>Agentic Skills</h3>
-        <div class="badge badge-info">{agentic_skills.length} loaded</div>
-      </div>
-      <div class="flex gap-2" style="flex-wrap: wrap;">
-        {#each agentic_skills as skill}
-           <span class="badge" style="background: rgba(6,182,212,0.1); color: var(--accent-cyan, #06b6d4); border: 1px solid var(--accent-cyan, #06b6d4)">{skill}</span>
-        {/each}
-        {#if agentic_skills.length === 0}
-           <span class="text-muted" style="font-size: 0.8rem;">Belum ada skills di folder /skills</span>
-        {/if}
+
+      <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05);">
+        <div class="flex justify-between items-center" style="margin-bottom: 0.75rem;">
+          <h3>Skills</h3>
+          <div class="badge badge-navy">{agentic_skills.length} loaded</div>
+        </div>
+        <div class="skills-wrap">
+          {#each agentic_skills as skill}
+            <span class="badge badge-navy skill-tag">{skill}</span>
+          {/each}
+          {#if agentic_skills.length === 0}
+            <span style="font-size:0.8rem; color:#4b5563;">No skills in /skills</span>
+          {/if}
+        </div>
       </div>
 
-      <a href="/ai" class="btn btn-ghost" style="width:100%; justify-content:center; margin-top:1.5rem;">
-        Buka AI Chat →
+      <a href="/ai" class="btn btn-ghost" style="width:100%; justify-content:center; margin-top:1.25rem;">
+        Open Chat →
       </a>
     </div>
 
-    <!-- Cloud Storage -->
+    <!-- Storage -->
     <div class="card">
       <div class="flex justify-between items-center" style="margin-bottom: 1rem;">
         <h3>Cloud Storage</h3>
-        <a href="/storage" class="btn btn-ghost" style="padding: 4px 12px; font-size: 0.8rem;">Lihat →</a>
+        <a href="/storage" class="btn btn-ghost" style="padding: 4px 10px; font-size: 0.8rem;">View →</a>
       </div>
       {#if dftr_smpn.length > 0}
         <div class="storage-list">
           {#each dftr_smpn as acc}
             <div class="storage-item">
               <div class="flex justify-between items-center" style="margin-bottom: 4px;">
-                <span class="font-medium">{acc.name}</span>
-                <span class="text-muted mono" style="font-size:0.75rem;">{acc.free_human} free</span>
+                <span style="font-weight:500; font-size:0.875rem;">{acc.name}</span>
+                <span class="mono" style="font-size:0.72rem; color:#4b5563;">{acc.free_human} free</span>
               </div>
               {#if acc.total > 0}
                 <div class="progress-bar">
@@ -256,43 +242,45 @@
                     style="width: {Math.min((acc.used / acc.total) * 100, 100)}%"
                   ></div>
                 </div>
-                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                <div style="font-size:0.72rem; color:#4b5563; margin-top:3px;">
                   {acc.used_human} / {acc.total_human}
                 </div>
               {:else if acc.error}
-                <span class="badge badge-warning" style="font-size:0.7rem;">{acc.error}</span>
+                <span class="badge badge-warning" style="font-size:0.68rem;">{acc.error}</span>
               {:else}
-                <span class="text-muted" style="font-size:0.75rem;">Klik lihat untuk detail</span>
+                <span style="font-size:0.75rem; color:#4b5563;">Click view for details</span>
               {/if}
             </div>
           {/each}
         </div>
       {:else}
         <div class="empty-state">
-          <p class="text-muted">Belum ada cloud storage yang ditautkan.</p>
-          <p class="text-muted" style="font-size: 0.8rem;">Jalankan <code class="mono">rclone config</code></p>
+          <p style="color:#4b5563; font-size:0.875rem;">No storage accounts linked.</p>
+          <p style="color:#4b5563; font-size:0.8rem; margin-top:4px;">Run <code class="mono">rclone config</code></p>
         </div>
       {/if}
     </div>
 
-    <!-- Log Usage -->
+    <!-- Log Storage -->
     {#if dt_metrics}
       <div class="card">
         <h3 style="margin-bottom: 1rem;">Log Storage</h3>
         {@const logPct = Math.min((dt_metrics.logs.total_size_mb / dt_metrics.logs.max_allowed_mb) * 100, 100)}
-        <div class="stat-value" style="font-size: 1.5rem;">
+        <div class="stat-value" style="font-size: 1.6rem;">
           {(dt_metrics.logs.total_size_mb / 1024).toFixed(1)} GB
         </div>
-        <div class="text-muted" style="margin: 4px 0 12px;">dari {dt_metrics.logs.max_allowed_mb / 1024} GB alokasi</div>
-        <div class="progress-bar" style="height: 10px;">
+        <div style="font-size:0.8rem; color:#4b5563; margin: 4px 0 12px;">
+          of {dt_metrics.logs.max_allowed_mb / 1024} GB allocated
+        </div>
+        <div class="progress-bar" style="height: 8px;">
           <div class="progress-fill"
             class:warning={logPct > 70}
             class:danger={logPct > 90}
             style="width: {logPct}%"
           ></div>
         </div>
-        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:8px;">
-          Auto-cleanup aktif · Threshold 80%
+        <div style="font-size:0.75rem; color:#4b5563; margin-top:8px;">
+          Auto-cleanup · threshold 80%
         </div>
       </div>
     {/if}
@@ -300,19 +288,11 @@
     <!-- Quick Links -->
     <div class="card">
       <h3 style="margin-bottom: 1rem;">Quick Actions</h3>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        <a href="/ai" class="btn btn-ghost" style="justify-content: flex-start;">
-          ✦ Chat dengan AI
-        </a>
-        <a href="/storage" class="btn btn-ghost" style="justify-content: flex-start;">
-          ☁ Manage Storage
-        </a>
-        <a href="/monitor" class="btn btn-ghost" style="justify-content: flex-start;">
-          ◈ System Monitor
-        </a>
-        <a href="/deploy" class="btn btn-ghost" style="justify-content: flex-start;">
-          ⚙ Deploy Service
-        </a>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <a href="/ai"      class="btn btn-ghost" style="justify-content: flex-start;">⌬ Chat</a>
+        <a href="/storage" class="btn btn-ghost" style="justify-content: flex-start;">⊞ Storage</a>
+        <a href="/monitor" class="btn btn-ghost" style="justify-content: flex-start;">◉ Monitor</a>
+        <a href="/deploy"  class="btn btn-ghost" style="justify-content: flex-start;">⚙ Deploy</a>
       </div>
     </div>
   </div>
@@ -327,88 +307,68 @@
     align-items: flex-start;
     margin-bottom: 2rem;
   }
+
+  .sub-label { color: #4b5563; font-size: 0.875rem; margin-top: 3px; }
+
   .header-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
-  .text-secondary { color: var(--text-secondary); margin-top: 4px; }
-  .text-muted { color: var(--text-muted); }
-  .font-medium { font-weight: 500; }
 
   .stat-card { position: relative; overflow: hidden; }
-  .stat-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle, rgba(0,212,255,0.05) 0%, transparent 70%);
-    pointer-events: none;
-  }
-  .stat-top {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 0.5rem;
-  }
-  .stat-icon { font-size: 1.2rem; }
-  .stat-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
-  .stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1; margin-bottom: 4px; }
-  .stat-sub { font-size: 0.8rem; }
+  .stat-top  { display: flex; align-items: center; gap: 8px; margin-bottom: 0.5rem; }
+  .stat-icon { font-size: 1rem; color: #dc2626; }
+  .stat-label { font-size: 0.72rem; color: #4b5563; text-transform: uppercase; letter-spacing: 0.08em; }
+  .stat-value { font-size: 1.7rem; font-weight: 700; line-height: 1; margin-bottom: 3px; }
+  .stat-sub   { font-size: 0.78rem; color: #4b5563; }
 
-  .loading-placeholder {
+  .loading-state {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 2rem;
-    color: var(--text-muted);
+    gap: 10px;
+    padding: 2rem 0;
   }
 
   .spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--border-subtle);
-    border-top-color: var(--accent-primary);
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.08);
+    border-top-color: #dc2626;
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
+
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .main-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
+
   @media (max-width: 1024px) {
     .main-grid { grid-template-columns: 1fr; }
   }
 
-  .providers-list { display: flex; flex-direction: column; gap: 8px; }
+  .providers-list { display: flex; flex-direction: column; gap: 4px; }
   .provider-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 8px 10px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-elevated);
+    border-radius: 6px;
+    background: #111827;
   }
-  .provider-name { font-size: 0.875rem; font-weight: 500; }
+  .provider-name { font-size: 0.85rem; font-weight: 500; }
 
-  .storage-list { display: flex; flex-direction: column; gap: 12px; }
-  .storage-item {
-    padding: 12px;
-    background: var(--bg-elevated);
-    border-radius: var(--radius-sm);
-  }
+  .skills-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
+  .skill-tag { font-size: 0.68rem !important; }
 
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 1rem 0;
-  }
+  .storage-list { display: flex; flex-direction: column; gap: 10px; }
+  .storage-item { padding: 10px; background: #111827; border-radius: 6px; }
 
-  code { font-family: var(--font-mono); font-size: 0.85rem; background: var(--bg-elevated); padding: 2px 6px; border-radius: 4px; }
+  .empty-state { padding: 0.5rem 0; }
+
+  code { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; background: #111827; padding: 2px 5px; border-radius: 4px; }
 </style>

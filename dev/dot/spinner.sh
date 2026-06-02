@@ -1,4 +1,6 @@
 #!/bin/bash
+
+trap 'tput cnorm; tput rc' EXIT SIGINT SIGTERM
 # =============================================================================
 # SPINNER.SH — Animasi Loading dengan output wrapping
 # =============================================================================
@@ -27,6 +29,7 @@ start_spinner() {
         printf "\e[?25l${CYAN}[ %s ]${RESET} %s" "${spin:$i:$charwidth}" "$msg"
         sleep .1
     done
+    tput cnorm # Show cursor after spinner completes
     tput rc
     printf "\e[?25h" # Show cursor
 }

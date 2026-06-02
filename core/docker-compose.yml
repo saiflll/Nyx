@@ -1,6 +1,4 @@
-# =============================================================================
-# core/docker-compose.yml — Orkestrasi Digital Brain v2
-# =============================================================================
+# core/docker-compose.yml — nyxCore orchestration
 
 version: "3.9"
 
@@ -54,7 +52,7 @@ services:
   ai-router:
     build:
       context: ../svc/ai_router
-    container_name: ai-router
+    container_name: nyx-agent
     restart: unless-stopped
     env_file: .env
     ports:
@@ -132,7 +130,7 @@ services:
   web-interface:
     build:
       context: ../svc/ui
-    container_name: web-interface
+    container_name: nyx-ui
     restart: unless-stopped
     env_file: .env
     ports:

@@ -16,7 +16,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
 
-app = FastAPI(title="Digital Brain AI Router", version="2.0")
+app = FastAPI(title="nyxAgent", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 security = HTTPBearer()
@@ -27,11 +27,7 @@ def amankan_rute(credentials: HTTPAuthorizationCredentials = Depends(security)):
         raise HTTPException(status_code=401, detail="API Key Server Salah atau Tidak Diberikan")
     return credentials.credentials
 
-# =============================================================================
-# STYLE GUIDE: snake_case + singkatan (ambl, smpn, bc, hndl_err)
-# =============================================================================
-
-# --- STRUCT / MODELS ---
+# === MODELS ===
 class RqstPesan(BaseModel):
     role: str
     content: Optional[str] = None
@@ -39,21 +35,20 @@ class RqstPesan(BaseModel):
     tool_call_id: Optional[str] = None
 
 class RqstJob(BaseModel):
-    model: Optional[str] = None   # Tangkap input 'model' dari standar OpenAI (VSCode)
+    model: Optional[str] = None
     messages: List[RqstPesan]
     jns_task: Optional[str] = "general"
     max_tokens: Optional[int] = 2048
-    temperature: Optional[float] = 0.7   # Standar OpenAI pakai temperature (inggris)
-    temperatur: Optional[float] = 0.7    # Fallback Indo
+    temperature: Optional[float] = 0.7
+    temperatur: Optional[float] = 0.7
     stream: Optional[bool] = False
 
     def ambl_task(self) -> str:
-        # Jika client (seperti VSCode) mengirim "model": "coding", ubah itu jadi jns_task
         if self.model and self.model in ["coding", "reasoning", "general", "sensitive", "fast"]:
             return self.model
         return self.jns_task
 
-# --- STATE MACHINE (In-Memory) ---
+# === STATE MACHINE ===
 dt_jobs: Dict[str, dict] = {}
 global_semaphore = asyncio.Semaphore(1)
 
@@ -81,7 +76,7 @@ def hndl_err(ctx: str, err: Exception):
     if DEBUG_MODE:
         print(f"[{ctx}] Error: {err}")
 
-# --- KELOLA PROVIDER & MULTI-ACCOUNT ---
+# === PROVIDER MANAGER ===
 class AiManager:
     def __init__(self):
         self.prov = []
@@ -94,32 +89,23 @@ class AiManager:
             with open("providers.yml", "r") as f:
                 cfg = yaml.safe_load(f)
                 self.prov = cfg.get("providers", [])
-                
             for p in self.prov:
                 nama = p["nama"]
                 env_k = p.get("env_key")
                 raw_keys = os.getenv(env_k, "")
-                
-                # Support multi-account, pisahkan koma
                 kunci = [k.strip() for k in raw_keys.split(",") if k.strip()]
                 self.kunci_akun[nama] = kunci
                 self.idx_akun[nama] = 0
                 self.usage[nama] = {"req": 0, "token": 0, "limit_hit": 0}
-                
-                tls_dbg(f"[mt_cfg] Load {nama}: {len(kunci)} akun")
+                tls_dbg(f"[mt_cfg] {nama}: {len(kunci)} akun")
         except Exception as err:
             hndl_err("mt_cfg", err)
 
     def ambl_prov(self, jns_task: str) -> list:
-        # Jika sensitif, PAKSA ke Qwen Lokal saja
         if jns_task == "sensitive":
             return [p for p in self.prov if p.get("is_local")]
-            
-        # Filter berdasarkan task dan urutkan priority
         hsl = [p for p in self.prov if jns_task in p.get("jns_task", []) and not p.get("is_local")]
         hsl.sort(key=lambda x: x.get("priority", 99))
-        
-        # Jika tidak ada yg cocok, fallback ke semua eksternal
         if not hsl:
             hsl = [p for p in self.prov if not p.get("is_local")]
             hsl.sort(key=lambda x: x.get("priority", 99))
@@ -129,12 +115,8 @@ class AiManager:
         dftr_kunci = self.kunci_akun.get(nama_prov, [])
         if not dftr_kunci:
             return ""
-            
-        # Round-Robin multi account
         idx = self.idx_akun.get(nama_prov, 0)
         kunci = dftr_kunci[idx]
-        
-        # Putar index ke akun berikutnya untuk request selanjutnya
         self.idx_akun[nama_prov] = (idx + 1) % len(dftr_kunci)
         return kunci
 
@@ -157,11 +139,10 @@ class AiManager:
             if m.tool_call_id is not None: pm["tool_call_id"] = m.tool_call_id
             pesan_akhir.append(pm)
             
-        # Injeksi Strict Prompt untuk Tools atau Style Guide
         if len(scanner.schemas) > 0:
-            pesan_akhir.insert(0, {"role": "system", "content": "ANDA ADALAH MESIN EKSEKUTOR TOOL. JIKA PERLU PANGGIL TOOL, KELUARKAN JSON SESUAI SCHEMA SAJA. DILARANG BERBASA-BASI. JIKA TIDAK, TERAPKAN STYLE GUIDE:\n" + dt_style_guide})
+            pesan_akhir.insert(0, {"role": "system", "content": "TOOL EXECUTOR MODE. Output JSON schema only if calling tool. Otherwise apply style guide:\n" + dt_style_guide})
         elif req.ambl_task() == "coding" and dt_style_guide:
-            pesan_akhir.insert(0, {"role": "system", "content": f"Kamu adalah AI asisten coding. WAJIB ikuti style guide berikut:\n{dt_style_guide}"})
+            pesan_akhir.insert(0, {"role": "system", "content": f"Coding assistant. Follow style guide:\n{dt_style_guide}"})
 
         pyld = {
             "model": prov["model_default"],
@@ -172,7 +153,6 @@ class AiManager:
         if len(scanner.schemas) > 0:
             pyld["tools"] = scanner.schemas
         
-        # Cek Force Refresh
         is_force = False
         if len(pesan_akhir) > 0 and pesan_akhir[-1]["role"] == "user":
             konten = pesan_akhir[-1].get("content", "")
@@ -180,32 +160,23 @@ class AiManager:
                 is_force = True
                 pesan_akhir[-1]["content"] = konten.replace("!refresh", "").strip()
                 pyld["messages"] = pesan_akhir
-                tls_dbg("[CACHE BYPASS] User memaksa refresh (!refresh)")
-        
-        # Cek Cache SQLite (Hemat Token & Waktu)
+                tls_dbg("[cache] bypass !refresh")
         if not is_force:
             cached = cache.get_cache(pyld)
             if cached:
-                tls_dbg(f"[CACHE HIT] Mengembalikan data lokal untuk model {prov['model_default']}")
+                tls_dbg(f"[cache] hit — {prov['model_default']}")
                 return cached
-
-        # Eksekusi dengan Semaphore (Dynamic Batching limit 1)
         async with global_semaphore:
             async with httpx.AsyncClient() as cln:
                 rspn = await cln.post(url, headers=headers, json=pyld, timeout=60.0)
-                if rspn.status_code == 429: # Rate limit hit!
+                if rspn.status_code == 429:
                     self.usage[prov["nama"]]["limit_hit"] += 1
                 rspn.raise_for_status()
                 hsl = rspn.json()
-                
-                # Simpan ke Cache
                 cache.set_cache(pyld, hsl)
-                
-                # Catat usage
                 self.usage[prov["nama"]]["req"] += 1
                 if "usage" in hsl:
                     self.usage[prov["nama"]]["token"] += hsl["usage"].get("total_tokens", 0)
-                    
                 return hsl
 
 mngr = AiManager()
@@ -225,9 +196,7 @@ async def startup():
     except Exception as e:
         tls_dbg(f"[startup] Gagal muat Style Guide (abaikan jika tidak ada): {e}")
 
-# =============================================================================
-# STATE MACHINE / ORCHESTRATOR
-# =============================================================================
+# === ORCHESTRATOR ===
 
 async def prs_job(job_id: str, rqst: RqstJob):
     dt_jobs[job_id]["status"] = "ROUTING"
@@ -295,7 +264,6 @@ async def prs_job(job_id: str, rqst: RqstJob):
 
 @app.post("/v1/jobs")
 async def bt_job(rqst: RqstJob, key: str = Depends(amankan_rute)):
-    # Buat Job ID unik
     id_job = str(uuid.uuid4())
     dt_jobs[id_job] = {
         "status": "PENDING",
@@ -305,7 +273,6 @@ async def bt_job(rqst: RqstJob, key: str = Depends(amankan_rute)):
         "error": None
     }
     
-    # Jalankan background task
     asyncio.create_task(prs_job(id_job, rqst))
     
     return {"job_id": id_job, "status": "PENDING"}
@@ -316,7 +283,6 @@ async def ck_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job tidak ditemukan")
     return dt_jobs[job_id]
 
-# Endpoint Legacy / Synchronous (tetap ada untuk backward compatibility SvelteKit UI saat ini)
 @app.post("/api/ai/v1/chat/completions")
 async def chat_legacy(rqst: RqstJob, key: str = Depends(amankan_rute)):
     id_job = str(uuid.uuid4())
@@ -341,7 +307,6 @@ async def ambl_skills():
 
 @app.post("/v1/deploy-webhook")
 async def deploy_webhook(key: str = Depends(amankan_rute)):
-    # Buat file trigger untuk ditangkap watchdog di host
     with open("/app/logs/deploy.trigger", "w") as f:
         f.write(str(time.time()))
     return {"status": "Deploy trigger sent to host watchdog"}

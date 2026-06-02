@@ -6,19 +6,17 @@ import os
 
 CACHE_DB = "/app/logs/router_cache.db"
 
-# Pastikan folder logs ada
 os.makedirs(os.path.dirname(CACHE_DB), exist_ok=True)
 
 def _get_conn():
     conn = sqlite3.connect(CACHE_DB)
     conn.execute('''CREATE TABLE IF NOT EXISTS api_cache
-                 (hash_key TEXT PRIMARY KEY, 
-                  response TEXT, 
+                 (hash_key TEXT PRIMARY KEY,
+                  response TEXT,
                   timestamp REAL)''')
     return conn
 
 def _hash_payload(pyld: dict) -> str:
-    # Buang property yang sering berubah/tidak esensial untuk di-hash
     clean_pyld = {k: v for k, v in pyld.items() if k not in ['temperature']}
     s = json.dumps(clean_pyld, sort_keys=True)
     return hashlib.md5(s.encode('utf-8')).hexdigest()

@@ -1,8 +1,6 @@
 #!/bin/bash
-# =============================================================================
 # core/setup-core.sh — Setup awal setelah Debian + Podman siap
 # Dijalankan SATU KALI setelah install selesai
-# =============================================================================
 set -euo pipefail
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'
@@ -16,9 +14,7 @@ header() { echo -e "\n${CYAN}${BOLD}━━━ $1 ━━━${RESET}\n"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# =============================================================================
-# FASE 1: Setup .env
-# =============================================================================
+# === FASE 1: Setup .env ===
 header "Setup environment variables"
 
 ENV_FILE="$SCRIPT_DIR/.env"
@@ -38,16 +34,12 @@ if [ ! -f "$ENV_FILE" ]; then
     fi
 fi
 
-# Source .env
 set -a; source "$ENV_FILE"; set +a
 log ".env loaded."
 
-# =============================================================================
-# FASE 2: Generate secrets jika masih pakai nilai default
-# =============================================================================
+# === FASE 2: Generate secrets ===
 header "Generate secrets"
 
-# Fungsi untuk generate random secret
 gen_secret() { openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | base64; }
 
 if grep -q "GANTI_INI" "$ENV_FILE"; then
@@ -62,9 +54,7 @@ if grep -q "GANTI_INI" "$ENV_FILE"; then
     log "Secrets di-generate secara otomatis."
 fi
 
-# =============================================================================
-# FASE 3: Download model Qwen2.5
-# =============================================================================
+# === FASE 3: Download model Qwen2.5 ===
 header "Download model Qwen2.5"
 
 MODEL_DIR="/opt/myserver/models"
@@ -83,14 +73,13 @@ fi
 if [ -f "$MODEL_DIR/$MODEL_FILE" ]; then
     log "Model $MODEL_FILE sudah ada, skip download."
 else
-    # Cek apakah ada cukup space
     FREE_SPACE_GB=$(df -BG "$MODEL_DIR" | tail -1 | awk '{gsub("G",""); print $4}')
     if (( FREE_SPACE_GB < EXPECTED_SIZE_GB + 1 )); then
         error "Storage tidak cukup! Butuh ~${EXPECTED_SIZE_GB}GB, tersedia ${FREE_SPACE_GB}GB"
     fi
 
     log "Download $MODEL_FILE (~${EXPECTED_SIZE_GB}GB)..."
-    log "Ini bisa memakan waktu 10-30 menit tergantung koneksi..."
+    log "Estimasi waktu: 10-30 menit tergantung koneksi..."
 
     wget --progress=bar:force \
         --retry-connrefused \
@@ -102,13 +91,10 @@ else
     log "Model $MODEL_FILE berhasil didownload!"
 fi
 
-# Update .env dengan nama model
 sed -i "s/QWEN_MODEL_FILE=.*/QWEN_MODEL_FILE=$MODEL_FILE/" "$ENV_FILE" 2>/dev/null || \
     echo "QWEN_MODEL_FILE=$MODEL_FILE" >> "$ENV_FILE"
 
-# =============================================================================
-# FASE 4: Setup rclone untuk cloud storage
-# =============================================================================
+# === FASE 4: Setup rclone ===
 header "Setup rclone Cloud Storage"
 
 mkdir -p /root/.config/rclone
@@ -116,46 +102,40 @@ mkdir -p /root/.config/rclone
 if [ ! -f /root/.config/rclone/rclone.conf ] || [ ! -s /root/.config/rclone/rclone.conf ]; then
     warn "Konfigurasi rclone belum ada."
     echo ""
-    echo "  Jalankan 'rclone config' secara manual untuk setup:"
+    echo "  Jalankan 'rclone config' untuk setup:"
     echo ""
-    echo "  1. Google Drive:  ketik 'n', nama: gdrive, provider: Google Drive"
-    echo "  2. MEGA:          ketik 'n', nama: mega, provider: Mega"
-    echo "  3. Dropbox:       ketik 'n', nama: dropbox, provider: Dropbox"
-    echo "  4. Terabox:       ketik 'n', nama: terabox, provider: WebDAV"
+    echo "  1. Google Drive:  'n', nama: gdrive"
+    echo "  2. MEGA:          'n', nama: mega"
+    echo "  3. Dropbox:       'n', nama: dropbox"
+    echo "  4. Terabox:       'n', nama: terabox, provider: WebDAV"
     echo ""
     prompt "Mau jalankan rclone config sekarang? (y/N)"
     read -r run_rclone
     if [[ "$run_rclone" =~ ^[Yy]$ ]]; then
         rclone config
     else
-        warn "Skip rclone config. Jalankan 'rclone config' nanti sebelum pakai storage manager."
+        warn "Skip rclone config."
     fi
 fi
 
-# =============================================================================
-# FASE 5: Setup Cloudflare Tunnel
-# =============================================================================
+# === FASE 5: Setup Cloudflare Tunnel ===
 header "Setup Cloudflare Tunnel"
 
 bash "$ROOT_DIR/configs/cloudflare/setup-tunnel.sh"
 
-# =============================================================================
-# FASE 6: Build semua Docker images
-# =============================================================================
+# === FASE 6: Build Docker images ===
 header "Build Docker images"
 
 cd "$SCRIPT_DIR"
-log "Building semua services (ini bisa lama pertama kali)..."
+log "Building semua services..."
 podman-compose build --no-cache 2>&1 | while IFS= read -r line; do
     echo "  $line"
 done
 
 log "Semua images berhasil di-build!"
 
-# =============================================================================
-# FASE 7: Start semua services
-# =============================================================================
-header "Starting semua services"
+# === FASE 7: Start services ===
+header "Starting services"
 
 podman-compose up -d
 
@@ -164,22 +144,16 @@ echo ""
 log "Status services:"
 podman-compose ps
 
-# =============================================================================
-# SELESAI
-# =============================================================================
 echo -e "\n${GREEN}${BOLD}"
-echo "  ╔════════════════════════════════════════════╗"
-echo "  ║   Setup selesai! Server siap digunakan.  ║"
-echo "  ╚════════════════════════════════════════════╝"
+echo "  ╔═══════════════════════════════════╗"
+echo "  ║   nyxCore siap.                  ║"
+echo "  ╚═══════════════════════════════════╝"
 echo -e "${RESET}"
 
-# Tampilkan URL akses
 if [ -n "${PUBLIC_HOSTNAME:-}" ]; then
-    echo "  🌐 Akses via: https://$PUBLIC_HOSTNAME"
+    echo "  🌐 https://$PUBLIC_HOSTNAME"
 fi
 echo "  📊 Local: http://localhost:${WEB_PORT:-3000}"
 echo ""
-echo "  Perintah berguna:"
-echo "  - Lihat status:  podman-compose ps"
-echo "  - Lihat log:     podman-compose logs -f [service]"
-echo "  - Stop server:   bash $ROOT_DIR/stop-server.sh"
+echo "  podman-compose ps            → status"
+echo "  podman-compose logs -f [svc] → log"

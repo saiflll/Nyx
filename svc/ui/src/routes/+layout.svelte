@@ -3,31 +3,29 @@
   import { page } from '$app/stores';
 
   const navItems = [
-    { href: '/',          icon: '⬡',  label: 'Dashboard' },
-    { href: '/ai',        icon: '✦',  label: 'AI Chat'   },
-    { href: '/storage',   icon: '☁',  label: 'Storage'   },
-    { href: '/monitor',   icon: '◈',  label: 'Monitor'   },
-    { href: '/deploy',    icon: '⚙',  label: 'Deploy'    },
+    { href: '/',        icon: '▣',  label: 'Dashboard' },
+    { href: '/ai',      icon: '⌬',  label: 'AI Chat'   },
+    { href: '/storage', icon: '⊞',  label: 'Storage'   },
+    { href: '/monitor', icon: '◉',  label: 'Monitor'   },
+    { href: '/deploy',  icon: '⚙',  label: 'Deploy'    },
+    { href: '/about',   icon: '◎',  label: 'About'     },
   ];
 </script>
 
 <div class="layout">
-  <!-- Sidebar -->
   <nav class="sidebar glass">
-    <!-- Logo -->
     <div class="logo">
       <div class="logo-icon">
-        <span>⬡</span>
+        <img src="/favicon.png" alt="Nyx" width="28" height="28" />
       </div>
       <div class="logo-text">
-        <span class="gradient-text">MyServer</span>
-        <span class="logo-sub">Note 10S</span>
+        <span class="gradient-text logo-name">Nyx</span>
+        <span class="logo-sub">nyxCore</span>
       </div>
     </div>
 
     <div class="divider" style="margin: 1.25rem 0;"></div>
 
-    <!-- Nav links -->
     <ul class="nav-list">
       {#each navItems as item}
         <li>
@@ -45,14 +43,12 @@
 
     <div style="flex: 1;" />
 
-    <!-- Server status -->
     <div class="server-status">
       <div class="status-dot online"></div>
-      <span style="font-size: 0.8rem; color: var(--text-secondary);">Server Online</span>
+      <span style="font-size: 0.8rem; color: #4b5563;">nyxAgent online</span>
     </div>
   </nav>
 
-  <!-- Main content -->
   <main class="main-content">
     <slot />
   </main>
@@ -63,36 +59,37 @@
     display: flex;
     height: 100vh;
     overflow: hidden;
+    background: #0d1117;
   }
 
   .sidebar {
-    width: 240px;
-    min-width: 240px;
-    padding: 1.5rem 1rem;
+    width: 220px;
+    min-width: 220px;
+    padding: 1.5rem 0.875rem;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--border-subtle);
+    border-right: 1px solid rgba(255,255,255,0.06);
     overflow-y: auto;
   }
 
   .logo {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 0 0.5rem;
+    gap: 10px;
+    padding: 0 0.375rem;
   }
 
   .logo-icon {
-    width: 40px;
-    height: 40px;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    background: #111827;
+    border: 1px solid rgba(220,38,38,0.3);
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
-    color: white;
-    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+    overflow: hidden;
+    flex-shrink: 0;
   }
 
   .logo-text {
@@ -101,73 +98,76 @@
     line-height: 1.2;
   }
 
-  .logo-text .gradient-text {
-    font-size: 1.1rem;
+  .logo-name {
+    font-size: 1.15rem;
     font-weight: 700;
+    letter-spacing: 0.04em;
   }
 
   .logo-sub {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    letter-spacing: 0.05em;
+    font-size: 0.68rem;
+    color: #4b5563;
+    letter-spacing: 0.06em;
+    font-family: 'JetBrains Mono', monospace;
   }
 
   .nav-list {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .nav-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: var(--radius-sm);
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 6px;
     text-decoration: none;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
+    color: #4b5563;
+    font-size: 0.875rem;
     font-weight: 500;
-    transition: all var(--transition);
+    transition: all 0.18s ease;
+    border: 1px solid transparent;
   }
 
   .nav-item:hover {
-    background: var(--bg-elevated);
-    color: var(--text-primary);
+    background: #111827;
+    color: #94a3b8;
   }
 
   .nav-item.active {
-    background: rgba(0, 212, 255, 0.1);
-    color: var(--accent-primary);
-    border: 1px solid rgba(0, 212, 255, 0.15);
+    background: rgba(220, 38, 38, 0.1);
+    color: #ef4444;
+    border-color: rgba(220, 38, 38, 0.18);
   }
 
   .nav-icon {
-    font-size: 1.1rem;
-    width: 24px;
+    font-size: 1rem;
+    width: 20px;
     text-align: center;
+    flex-shrink: 0;
   }
 
   .server-status {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 12px;
-    background: rgba(16, 185, 129, 0.05);
-    border: 1px solid rgba(16, 185, 129, 0.1);
-    border-radius: var(--radius-sm);
+    padding: 9px 10px;
+    background: rgba(22, 163, 74, 0.04);
+    border: 1px solid rgba(22, 163, 74, 0.1);
+    border-radius: 6px;
   }
 
   .main-content {
     flex: 1;
     overflow-y: auto;
     padding: 2rem;
+    background: #0d1117;
   }
 
   @media (max-width: 768px) {
-    .sidebar {
-      display: none;
-    }
+    .sidebar { display: none; }
   }
 </style>
