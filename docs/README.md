@@ -84,11 +84,11 @@ See `docs/flow.html` for the full system flow diagram.
 
 ## About
 
-**Muhammad Saifulloh** — aka [renagge39](https://github.com/renagge39)
+**Muhammad Saifulloh** — aka [renagge39](https://github.com/saiflll)
 
 > "Build it small, run it everywhere, own everything."
 
-*Inspired by [nanobot](https://github.com/renagge39/nanobot) and [CasaOS](https://www.casaos.io)*
+*Inspired by [nanobot](https://github.com/HKUDS/nanobot) and [CasaOS](https://www.casaos.io)*
 
 <a href="https://linkedin.com/in/YOUR_LINKEDIN_HERE" title="LinkedIn — hardware demo">
   <img src="https://img.shields.io/badge/-LinkedIn-0d1117?style=flat-square&logo=linkedin&logoColor=b91c1c" alt="LinkedIn" />
