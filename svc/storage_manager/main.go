@@ -7,6 +7,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -88,6 +89,10 @@ var (
 
 func main() {
 	port := amblEnv("STORAGE_MANAGER_PORT", "8090")
+
+	if amblEnv("DEBUG_MODE", "1") == "0" {
+		log.SetOutput(io.Discard)
+	}
 
 	if err := mtKtgri(); err != nil {
 		hndlErr("mtKtgri", err)

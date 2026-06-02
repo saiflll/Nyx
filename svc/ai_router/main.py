@@ -4,15 +4,28 @@ import asyncio
 import uuid
 import json
 import yaml
+import yaml
 import httpx
-from fastapi import FastAPI, Request, HTTPException
+import docker
+import cache
+from tool_scanner import scanner
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 app = FastAPI(title="Digital Brain AI Router", version="2.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+security = HTTPBearer()
+SERVER_ACCESS_KEY = os.getenv("SERVER_ACCESS_KEY", "dev-key-123")
+
+def amankan_rute(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if credentials.credentials != SERVER_ACCESS_KEY:
+        raise HTTPException(status_code=401, detail="API Key Server Salah atau Tidak Diberikan")
+    return credentials.credentials
 
 # =============================================================================
 # STYLE GUIDE: snake_case + singkatan (ambl, smpn, bc, hndl_err)
@@ -21,7 +34,9 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 # --- STRUCT / MODELS ---
 class RqstPesan(BaseModel):
     role: str
-    content: str
+    content: Optional[str] = None
+    tool_calls: Optional[List[Dict[str, Any]]] = None
+    tool_call_id: Optional[str] = None
 
 class RqstJob(BaseModel):
     model: Optional[str] = None   # Tangkap input 'model' dari standar OpenAI (VSCode)
@@ -40,9 +55,31 @@ class RqstJob(BaseModel):
 
 # --- STATE MACHINE (In-Memory) ---
 dt_jobs: Dict[str, dict] = {}
+global_semaphore = asyncio.Semaphore(1)
 
+try:
+    dkr_cln = docker.from_env()
+except:
+    dkr_cln = None
+
+DEBUG_MODE = os.getenv("DEBUG_MODE", "1") == "1"
+
+def tls_dbg(msg: str):
+    if DEBUG_MODE:
+        print(msg)
+
+def bangun_qwen():
+    if not dkr_cln: return
+    try:
+        cont = dkr_cln.containers.get("core-qwen-local-1")
+        if cont.status == "paused":
+            cont.unpause()
+            tls_dbg("[DOCKER] Qwen Local berhasil dibangunkan (Unpause)")
+    except Exception as e:
+        pass
 def hndl_err(ctx: str, err: Exception):
-    print(f"[{ctx}] Error: {err}")
+    if DEBUG_MODE:
+        print(f"[{ctx}] Error: {err}")
 
 # --- KELOLA PROVIDER & MULTI-ACCOUNT ---
 class AiManager:
@@ -69,7 +106,7 @@ class AiManager:
                 self.idx_akun[nama] = 0
                 self.usage[nama] = {"req": 0, "token": 0, "limit_hit": 0}
                 
-                print(f"[mt_cfg] Load {nama}: {len(kunci)} akun")
+                tls_dbg(f"[mt_cfg] Load {nama}: {len(kunci)} akun")
         except Exception as err:
             hndl_err("mt_cfg", err)
 
@@ -112,10 +149,18 @@ class AiManager:
             "Authorization": f"Bearer {kunci}"
         }
         
-        pesan_akhir = [{"role": m.role, "content": m.content} for m in req.messages]
-        
-        # Injeksi Style Guide jika task berkaitan dengan coding
-        if req.ambl_task() == "coding" and dt_style_guide:
+        pesan_akhir = []
+        for m in req.messages:
+            pm = {"role": m.role}
+            if m.content is not None: pm["content"] = m.content
+            if m.tool_calls is not None: pm["tool_calls"] = m.tool_calls
+            if m.tool_call_id is not None: pm["tool_call_id"] = m.tool_call_id
+            pesan_akhir.append(pm)
+            
+        # Injeksi Strict Prompt untuk Tools atau Style Guide
+        if len(scanner.schemas) > 0:
+            pesan_akhir.insert(0, {"role": "system", "content": "ANDA ADALAH MESIN EKSEKUTOR TOOL. JIKA PERLU PANGGIL TOOL, KELUARKAN JSON SESUAI SCHEMA SAJA. DILARANG BERBASA-BASI. JIKA TIDAK, TERAPKAN STYLE GUIDE:\n" + dt_style_guide})
+        elif req.ambl_task() == "coding" and dt_style_guide:
             pesan_akhir.insert(0, {"role": "system", "content": f"Kamu adalah AI asisten coding. WAJIB ikuti style guide berikut:\n{dt_style_guide}"})
 
         pyld = {
@@ -124,20 +169,44 @@ class AiManager:
             "max_tokens": req.max_tokens,
             "temperature": req.temperature if req.temperature is not None else req.temperatur
         }
+        if len(scanner.schemas) > 0:
+            pyld["tools"] = scanner.schemas
         
-        async with httpx.AsyncClient() as cln:
-            rspn = await cln.post(url, headers=headers, json=pyld, timeout=60.0)
-            if rspn.status_code == 429: # Rate limit hit!
-                self.usage[prov["nama"]]["limit_hit"] += 1
-            rspn.raise_for_status()
-            hsl = rspn.json()
-            
-            # Catat usage
-            self.usage[prov["nama"]]["req"] += 1
-            if "usage" in hsl:
-                self.usage[prov["nama"]]["token"] += hsl["usage"].get("total_tokens", 0)
+        # Cek Force Refresh
+        is_force = False
+        if len(pesan_akhir) > 0 and pesan_akhir[-1]["role"] == "user":
+            konten = pesan_akhir[-1].get("content", "")
+            if isinstance(konten, str) and "!refresh" in konten:
+                is_force = True
+                pesan_akhir[-1]["content"] = konten.replace("!refresh", "").strip()
+                pyld["messages"] = pesan_akhir
+                tls_dbg("[CACHE BYPASS] User memaksa refresh (!refresh)")
+        
+        # Cek Cache SQLite (Hemat Token & Waktu)
+        if not is_force:
+            cached = cache.get_cache(pyld)
+            if cached:
+                tls_dbg(f"[CACHE HIT] Mengembalikan data lokal untuk model {prov['model_default']}")
+                return cached
+
+        # Eksekusi dengan Semaphore (Dynamic Batching limit 1)
+        async with global_semaphore:
+            async with httpx.AsyncClient() as cln:
+                rspn = await cln.post(url, headers=headers, json=pyld, timeout=60.0)
+                if rspn.status_code == 429: # Rate limit hit!
+                    self.usage[prov["nama"]]["limit_hit"] += 1
+                rspn.raise_for_status()
+                hsl = rspn.json()
                 
-            return hsl
+                # Simpan ke Cache
+                cache.set_cache(pyld, hsl)
+                
+                # Catat usage
+                self.usage[prov["nama"]]["req"] += 1
+                if "usage" in hsl:
+                    self.usage[prov["nama"]]["token"] += hsl["usage"].get("total_tokens", 0)
+                    
+                return hsl
 
 mngr = AiManager()
 dt_style_guide = ""
@@ -152,9 +221,9 @@ async def startup():
             # Kompresi untuk hemat token: hapus baris kosong dan multiple spaces
             lines = [l.strip() for l in raw.splitlines() if l.strip()]
             dt_style_guide = " ".join(lines).replace("  ", " ")
-        print("[startup] Style Guide berhasil dimuat & dikompres (Hemat Token!)")
+        tls_dbg("[startup] Style Guide berhasil dimuat & dikompres (Hemat Token!)")
     except Exception as e:
-        print(f"[startup] Gagal muat Style Guide (abaikan jika tidak ada): {e}")
+        tls_dbg(f"[startup] Gagal muat Style Guide (abaikan jika tidak ada): {e}")
 
 # =============================================================================
 # STATE MACHINE / ORCHESTRATOR
@@ -171,12 +240,34 @@ async def prs_job(job_id: str, rqst: RqstJob):
         return
         
     for p in dftr_prov:
+        if p.get("is_local"):
+            bangun_qwen()
+            
         dt_jobs[job_id]["status"] = f"THINKING ({p['nama']})"
         dt_jobs[job_id]["history_prov"].append(p["nama"])
         try:
-            hsl = await mngr.krm_rqst(p, rqst)
-            
-            # Validation (bisa ditambah logic State Machine di sini, ex: if salah format -> RETRY)
+            hsl = None
+            for step in range(3): # Max 3 tool iterations
+                hsl = await mngr.krm_rqst(p, rqst)
+                msg_out = hsl.get("choices", [{}])[0].get("message", {})
+                tool_calls = msg_out.get("tool_calls")
+                
+                if tool_calls:
+                    dt_jobs[job_id]["status"] = f"EXECUTING_TOOL ({p['nama']})"
+                    for tc in tool_calls:
+                        func_name = tc["function"]["name"]
+                        try:
+                            args = json.loads(tc["function"]["arguments"])
+                            tool_res = scanner.execute_tool(func_name, args)
+                        except Exception as e:
+                            tool_res = {"error": "Format argumen tidak valid JSON. Perbaiki."}
+                            
+                        # Update history
+                        rqst.messages.append(RqstPesan(role="assistant", content=msg_out.get("content"), tool_calls=tool_calls))
+                        rqst.messages.append(RqstPesan(role="tool", content=json.dumps(tool_res), tool_call_id=tc.get("id")))
+                    continue # Loop ke LLM lagi
+                else:
+                    break # Selesai
             
             dt_jobs[job_id]["status"] = "DONE"
             dt_jobs[job_id]["hasil"] = hsl
@@ -203,7 +294,7 @@ async def prs_job(job_id: str, rqst: RqstJob):
 
 
 @app.post("/v1/jobs")
-async def bt_job(rqst: RqstJob):
+async def bt_job(rqst: RqstJob, key: str = Depends(amankan_rute)):
     # Buat Job ID unik
     id_job = str(uuid.uuid4())
     dt_jobs[id_job] = {
@@ -227,7 +318,7 @@ async def ck_job(job_id: str):
 
 # Endpoint Legacy / Synchronous (tetap ada untuk backward compatibility SvelteKit UI saat ini)
 @app.post("/api/ai/v1/chat/completions")
-async def chat_legacy(rqst: RqstJob):
+async def chat_legacy(rqst: RqstJob, key: str = Depends(amankan_rute)):
     id_job = str(uuid.uuid4())
     dt_jobs[id_job] = {"status": "PENDING", "history_prov": []}
     
@@ -243,6 +334,17 @@ async def chat_legacy(rqst: RqstJob):
 @app.get("/api/ai/usage")
 async def ck_usage():
     return {"usage": mngr.usage}
+
+@app.get("/api/skills")
+async def ambl_skills():
+    return {"skills": [s["function"] for s in scanner.schemas]}
+
+@app.post("/v1/deploy-webhook")
+async def deploy_webhook(key: str = Depends(amankan_rute)):
+    # Buat file trigger untuk ditangkap watchdog di host
+    with open("/app/logs/deploy.trigger", "w") as f:
+        f.write(str(time.time()))
+    return {"status": "Deploy trigger sent to host watchdog"}
 
 if __name__ == "__main__":
     import uvicorn

@@ -33,8 +33,11 @@ async def ambl_html(url: str) -> str:
         hndl_err("ambl_html", err)
         return ""
 
+DEBUG_MODE = os.getenv("DEBUG_MODE", "1") == "1"
+
 def hndl_err(ctx: str, err: Exception):
-    print(f"[{ctx}] Error: {err}")
+    if DEBUG_MODE:
+        print(f"[{ctx}] Error: {err}")
 
 def prs_email(html: str) -> list[str]:
     # Regex sederhana untuk email

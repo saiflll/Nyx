@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# services/qwen-local/start.sh — Start llama.cpp server untuk Qwen2.5
+# svc/qwen_local/start.sh — Start llama.cpp server untuk Qwen2.5
 # =============================================================================
 set -e
 
@@ -28,7 +28,7 @@ fi
 
 if [ ! -f "$MODEL_PATH" ]; then
     echo "ERROR: Model tidak ditemukan di $MODEL_PATH"
-    echo "Jalankan: bash /root/myserver/services/qwen-local/download-model.sh"
+    echo "Jalankan: bash /root/myserver/svc/qwen_local/download-model.sh"
     exit 1
 fi
 

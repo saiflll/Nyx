@@ -22,6 +22,7 @@
   let dt_metrics: Metrics | null = null;
   let dftr_srv: ServiceStatus[] = [];
   let dftr_smpn: any[] = [];
+  let agentic_skills: string[] = [];
   let smbr_ev: EventSource | null = null;
   let wkt_akhir = '';
   let uptime = 0;
@@ -61,6 +62,15 @@
       dftr_smpn = data.accounts || [];
     } catch (e) {
       console.error('Failed to load storage', e);
+    }
+
+    // Load agentic skills
+    try {
+      const res = await fetch('/api/skills');
+      const data = await res.json();
+      agentic_skills = (data.skills || []).map((s: any) => s.name);
+    } catch (e) {
+      console.log('No agentic skills loaded');
     }
 
     // Real-time dt_metrics via SSE
@@ -192,6 +202,7 @@
               <span class="provider-name">{svc.name}</span>
               {#if svc.is_local}
                 <span class="badge badge-info" style="font-size:0.65rem;">lokal</span>
+                <span class="badge" style="font-size:0.65rem; background:rgba(139,92,246,0.2); color:var(--purple); border:1px solid var(--purple)">❄️ paused</span>
               {/if}
             </div>
             <div class="flex items-center gap-2">
@@ -205,7 +216,21 @@
           </div>
         {/each}
       </div>
-      <a href="/ai" class="btn btn-ghost" style="width:100%; justify-content:center; margin-top:1rem;">
+      
+      <div class="flex justify-between items-center" style="margin-bottom: 0.75rem; margin-top: 1.5rem;">
+        <h3>Agentic Skills</h3>
+        <div class="badge badge-info">{agentic_skills.length} loaded</div>
+      </div>
+      <div class="flex gap-2" style="flex-wrap: wrap;">
+        {#each agentic_skills as skill}
+           <span class="badge" style="background: rgba(6,182,212,0.1); color: var(--accent-cyan, #06b6d4); border: 1px solid var(--accent-cyan, #06b6d4)">{skill}</span>
+        {/each}
+        {#if agentic_skills.length === 0}
+           <span class="text-muted" style="font-size: 0.8rem;">Belum ada skills di folder /skills</span>
+        {/if}
+      </div>
+
+      <a href="/ai" class="btn btn-ghost" style="width:100%; justify-content:center; margin-top:1.5rem;">
         Buka AI Chat →
       </a>
     </div>
@@ -293,7 +318,7 @@
   </div>
 </div>
 
-<style>
+<style lang="scss">
   .dashboard { max-width: 1400px; }
 
   .page-header {

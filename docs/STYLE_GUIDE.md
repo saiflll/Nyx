@@ -76,7 +76,8 @@ function bcFile(path: string) {  // baca konten file
 - Tidak perlu JSDoc untuk semua fungsi
 - Wajib komentar singkat di head fungsi jika nama masih ambigu
 - Wajib di bagian tricky logic/workaround
-- Separator `// === NAMA ===` untuk section besar
+- Separator `// --- NAMA SECTION --- ` untuk section besar
+- Sparator untuk komentar fungsi penting dan sub section yang perlu di komentari pakai `// nama subtion ` saja , contoh : `// handle function`
 
 ---
 
@@ -124,3 +125,34 @@ def hndl_err(ctx: str, err: Exception):
 | Go           | Tab    | 120 char |
 | Rust/C++     | 4 spasi| 100 char |
 | Bash         | 4 spasi| 80 char  |
+
+### 6. Aturan Pengubahan
+Gunakan metode dan route yang sudah ada diutamakan kecuali aku meminta diubah atau ditambahkan. Atau bisa sarankan metode lain jika dianggap lebih efesien dan cocok.
+Jangan asal mengubah api dan merubah endpoint yang sudah ada tanpa memberitahuku. Kecuali ada perubahan yang sudah di ACC olehku.
+Jangan asal mengubah layout tampilan kecuali meminta tersetujuanku( jika project sudah ada uinya ) jika belum bia full autu build dengan integrasi backend dan frontend otomatis.
+
+### 7. Aturan Komunikasi
+Saat menjelaskan task selalu gunakan Bahasa Indonesia.
+
+### 8. Aturan Update
+Saat mengubah/ menambah atau menguranggi suatu fitur atau route , biasakan cek ada keterkaitan service lain atau tidak, jika tidak langsung saja jika ada seperti ke ui maka sesuaikan dulu sebelum bilang done.
+
+### 9. Aturan Penamaan Folder
+Aku lebih suka penamaan yang singkat dan jelas, menggunakan bahasa Indonesia. Contoh : folder ui jangan ditulis user-interface tapi tulis ui saja, kumpulan services jangan ditulis sebagai full-service atau group-services tapi tulis svc, contoh lain kumpulan script untuk testing atau develop , jangan dimasukan dalam folder bernama develop cukup dev , begitu juga untuk dokumentasi cukup docs saja . untuk main program aku lebih suka nama foldernya core saja.
+
+### 10. Aturan Penamaan File
+Jika menamai file yang isinya code python aku lebih suka menggunakan snake_case, contoh file-saya.py atau file_saya.py.  jika menamai file yang isinya code typescript aku lebih suka menggunakan camelCase, contoh fileSaya.ts atau file-saya.ts . jika menamai file yang isinya code go aku lebih suka menggunakan snake_case, contoh file_saya.go . dan namanya itu jelas contoh jika isi filenya untuk mengelola user maka bisa diberi nama user.py , user.ts atau user.go  atau jika isi filenya untuk mengelola database maka bisa diberi nama db.py, db.ts atau db.go. dan contoh lain jika komplek dan banyak pemangilan ,aku lebih suka standart semua formatnya , contoh file di folder tool maka didalamnya nama filenya tool_user.py atau toolUser begitu . aku lebih suka mengunakan bahasa indonesia untuk menamai file, folder atau variable tetapi jika variabel bahasa indonesianya terlalu panjang atau susah diucapkan atau susah dihafalkan dan disingkat seperti menjalankan atau memegang atau mengelola proses aku lebih suka menggunakan bahasa inggris untuk menamai variable, folder atau file ya walaupun ku singkat seperti mng(management) ctlg(controlling) dst.
+
+### 11. Susunan strukture file
+Untuk backend aku lebih suka terpisah- pisah antara bagian core atau inti , bagian service atau fitur , bagaian ui , bagian dokumen , bagian dev tool , bagian config , dst 
+begitu juga di front endnya 
+bagain layout,
+bagain header , 
+bagain isi , 
+bagain navigasi , 
+bagain styling , 
+bagain yang hit ke api" be dan 
+bagain scripting dan static file 
+
+### 12. Model Debug
+ Aku suka membuat sistem itu bisa di on offkan mode debugnya melalui satu perintah bisa dari .env bisa dari main sistemnya , cukup ubah 1 jadi 0 atau on jadi off untuk mematikan semua console log , debug , dkk agar lebih silent saat sudah fix dideploy. tapi saat awal build sbelum aku ubah sendiri jadi 0 default ny 1

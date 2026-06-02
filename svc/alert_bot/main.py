@@ -10,9 +10,15 @@ import httpx
 TKN_BOT = os.getenv("TELEGRAM_BOT_TOKEN")
 ID_CHAT = os.getenv("TELEGRAM_CHAT_ID")
 
+DEBUG_MODE = os.getenv("DEBUG_MODE", "1") == "1"
+
+def tls_dbg(msg: str):
+    if DEBUG_MODE:
+        print(msg)
+
 async def krm_psn(pesan: str) -> bool:
     if not TKN_BOT or not ID_CHAT:
-        print("TKN_BOT atau ID_CHAT tidak ada, skip krm_psn")
+        tls_dbg("TKN_BOT atau ID_CHAT tidak ada, skip krm_psn")
         return False
 
     url = f"https://api.telegram.org/bot{TKN_BOT}/sendMessage"
@@ -26,17 +32,18 @@ async def krm_psn(pesan: str) -> bool:
         async with httpx.AsyncClient() as cln:
             rspn = await cln.post(url, json=payload, timeout=10.0)
             if rspn.status_code == 200:
-                print(f"Sukses ngrm pesan: {pesan}")
+                tls_dbg(f"Sukses ngrm pesan: {pesan}")
                 return True
             else:
-                print(f"Gagal ngrm pesan: {rspn.text}")
+                tls_dbg(f"Gagal ngrm pesan: {rspn.text}")
                 return False
     except Exception as err:
         hndl_err("krm_psn", err)
         return False
 
 def hndl_err(ctx: str, err: Exception):
-    print(f"[{ctx}] {err}")
+    if DEBUG_MODE:
+        print(f"[{ctx}] {err}")
 
 async def ck_health():
     # Contoh fungsi untuk cek health nginx, ini bisa diperluas
@@ -48,7 +55,7 @@ async def ck_health():
         return False
 
 async def mlu_bot():
-    print("Bot mlu (running)...")
+    tls_dbg("Bot mlu (running)...")
     await krm_psn("✅ *Server AI Note 10S Online*\nBot alert telah aktif.")
     
     while True:

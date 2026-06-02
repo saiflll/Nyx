@@ -53,16 +53,17 @@ services:
   # ───────────────────────────────────────────────────────────────────────────
   ai-router:
     build:
-      context: ../services/ai-router
+      context: ../svc/ai_router
     container_name: ai-router
     restart: unless-stopped
     env_file: .env
     ports:
       - "127.0.0.1:${AI_ROUTER_PORT:-8080}:8080"
     volumes:
-      - ../services/ai-router/providers.yml:/app/providers.yml:ro
+      - ../svc/ai_router/providers.yml:/app/providers.yml:ro
       - ../docs/STYLE_GUIDE.md:/app/STYLE_GUIDE.md:ro
-      - logs_data:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./logs:/app/logs
     networks:
       - frontend
       - backend
@@ -79,7 +80,7 @@ services:
 
   qwen-local:
     build:
-      context: ../services/qwen-local
+      context: ../svc/qwen_local
     container_name: qwen-local
     restart: unless-stopped
     env_file: .env
@@ -107,7 +108,7 @@ services:
   # ───────────────────────────────────────────────────────────────────────────
   storage-manager:
     build:
-      context: ../services/storage-manager
+      context: ../svc/storage_manager
     container_name: storage-manager
     restart: unless-stopped
     env_file: .env
@@ -115,7 +116,7 @@ services:
       - storage_data:/data
       - logs_data:/app/logs
       - /root/.config/rclone:/root/.config/rclone:ro
-      - ../services/storage-manager/categories.yml:/app/categories.yml:ro
+      - ../svc/storage_manager/categories.yml:/app/categories.yml:ro
     ports:
       - "127.0.0.1:${STORAGE_MANAGER_PORT:-8090}:8090"
     networks:
@@ -130,7 +131,7 @@ services:
 
   web-interface:
     build:
-      context: ../services/web-interface
+      context: ../svc/ui
     container_name: web-interface
     restart: unless-stopped
     env_file: .env
@@ -173,7 +174,7 @@ services:
   # ───────────────────────────────────────────────────────────────────────────
   monitoring:
     build:
-      context: ../services/monitoring
+      context: ../svc/monitoring
     container_name: monitoring
     restart: unless-stopped
     env_file: .env
@@ -203,7 +204,7 @@ services:
 
   osint-scraper:
     build:
-      context: ../services/osint-scraper
+      context: ../svc/osint_scraper
     container_name: osint-scraper
     restart: unless-stopped
     env_file: .env
@@ -215,7 +216,7 @@ services:
 
   alert-bot:
     build:
-      context: ../services/alert-bot
+      context: ../svc/alert_bot
     container_name: alert-bot
     restart: unless-stopped
     env_file: .env

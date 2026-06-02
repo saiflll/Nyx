@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# services/qwen-local/download-model.sh
+# svc/qwen_local/download-model.sh
 # Download model Qwen2.5 dari HuggingFace
 # =============================================================================
 set -e
