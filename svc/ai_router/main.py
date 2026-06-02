@@ -4,10 +4,10 @@ import asyncio
 import uuid
 import json
 import yaml
-import yaml
 import httpx
 import docker
 import cache
+import state_db
 from tool_scanner import scanner
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
@@ -189,31 +189,42 @@ async def startup():
     try:
         with open("/app/STYLE_GUIDE.md", "r", encoding="utf-8") as f:
             raw = f.read()
-            # Kompresi untuk hemat token: hapus baris kosong dan multiple spaces
             lines = [l.strip() for l in raw.splitlines() if l.strip()]
             dt_style_guide = " ".join(lines).replace("  ", " ")
-        tls_dbg("[startup] Style Guide berhasil dimuat & dikompres (Hemat Token!)")
+        tls_dbg("[startup] Style Guide loaded")
     except Exception as e:
-        tls_dbg(f"[startup] Gagal muat Style Guide (abaikan jika tidak ada): {e}")
+        tls_dbg(f"[startup] Style Guide tidak ada: {e}")
+
+    # Recovery: job yang interrupted saat container mati di-mark FAILED
+    recovered = state_db.pulihkan_jobs()
+    dt_jobs.update(recovered)
+    if recovered:
+        tls_dbg(f"[startup] Recovered {len(recovered)} job(s) dari SQLite (marked FAILED)")
+
+    # Cleanup job lama (> 7 hari)
+    state_db.brshn_lama()
 
 # === ORCHESTRATOR ===
 
+def _upd_job(job_id: str, **kw):  # update in-memory + persist ke SQLite
+    dt_jobs[job_id].update(kw)
+    state_db.atr_status(job_id, dt_jobs[job_id]["status"], **{k: v for k, v in kw.items() if k != "status"})
+
 async def prs_job(job_id: str, rqst: RqstJob):
-    dt_jobs[job_id]["status"] = "ROUTING"
-    
+    _upd_job(job_id, status="ROUTING")
+
     task_real = rqst.ambl_task()
     dftr_prov = mngr.ambl_prov(task_real)
     if not dftr_prov:
-        dt_jobs[job_id]["status"] = "FAILED"
-        dt_jobs[job_id]["error"] = "Tidak ada provider tersedia"
+        _upd_job(job_id, status="FAILED", error="Tidak ada provider tersedia")
         return
         
     for p in dftr_prov:
         if p.get("is_local"):
             bangun_qwen()
             
-        dt_jobs[job_id]["status"] = f"THINKING ({p['nama']})"
         dt_jobs[job_id]["history_prov"].append(p["nama"])
+        _upd_job(job_id, status=f"THINKING ({p['nama']})", history_prov=dt_jobs[job_id]["history_prov"])
         try:
             hsl = None
             for step in range(3): # Max 3 tool iterations
@@ -222,7 +233,7 @@ async def prs_job(job_id: str, rqst: RqstJob):
                 tool_calls = msg_out.get("tool_calls")
                 
                 if tool_calls:
-                    dt_jobs[job_id]["status"] = f"EXECUTING_TOOL ({p['nama']})"
+                    _upd_job(job_id, status=f"EXECUTING_TOOL ({p['nama']})")
                     for tc in tool_calls:
                         func_name = tc["function"]["name"]
                         try:
@@ -238,13 +249,12 @@ async def prs_job(job_id: str, rqst: RqstJob):
                 else:
                     break # Selesai
             
-            dt_jobs[job_id]["status"] = "DONE"
-            dt_jobs[job_id]["hasil"] = hsl
-            dt_jobs[job_id]["routing"] = {
+            routing = {
                 "provider": p["nama"],
                 "model": p["model_default"],
                 "multi_account_idx": mngr.idx_akun.get(p["nama"], 0)
             }
+            _upd_job(job_id, status="DONE", hasil=hsl, routing=routing)
             return
             
         except httpx.HTTPStatusError as e:
@@ -258,8 +268,7 @@ async def prs_job(job_id: str, rqst: RqstJob):
             hndl_err("prs_job", e)
             continue
             
-    dt_jobs[job_id]["status"] = "FAILED"
-    dt_jobs[job_id]["error"] = "Semua provider gagal atau limit habis"
+    _upd_job(job_id, status="FAILED", error="Semua provider gagal atau limit habis")
 
 
 @app.post("/v1/jobs")
@@ -270,26 +279,36 @@ async def bt_job(rqst: RqstJob, key: str = Depends(amankan_rute)):
         "waktu_buat": time.time(),
         "history_prov": [],
         "hasil": None,
+        "routing": None,
         "error": None
     }
-    
+    state_db.smpn_job(id_job, dt_jobs[id_job])
     asyncio.create_task(prs_job(id_job, rqst))
-    
     return {"job_id": id_job, "status": "PENDING"}
 
 @app.get("/v1/jobs/{job_id}")
 async def ck_job(job_id: str):
-    if job_id not in dt_jobs:
-        raise HTTPException(status_code=404, detail="Job tidak ditemukan")
-    return dt_jobs[job_id]
+    if job_id in dt_jobs:
+        return dt_jobs[job_id]
+    # Fallback: job ada di SQLite tapi sudah keluar dari in-memory (restart lama)
+    dt = state_db.ambl_job(job_id)
+    if dt:
+        return dt
+    raise HTTPException(status_code=404, detail="Job tidak ditemukan")
 
 @app.post("/api/ai/v1/chat/completions")
 async def chat_legacy(rqst: RqstJob, key: str = Depends(amankan_rute)):
     id_job = str(uuid.uuid4())
-    dt_jobs[id_job] = {"status": "PENDING", "history_prov": []}
-    
+    dt_jobs[id_job] = {
+        "status": "PENDING",
+        "waktu_buat": time.time(),
+        "history_prov": [],
+        "hasil": None,
+        "routing": None,
+        "error": None
+    }
+    state_db.smpn_job(id_job, dt_jobs[id_job])
     await prs_job(id_job, rqst)
-    
     if dt_jobs[id_job]["status"] == "DONE":
         hsl = dt_jobs[id_job]["hasil"]
         hsl["_routing"] = dt_jobs[id_job]["routing"]

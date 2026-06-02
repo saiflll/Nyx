@@ -82,6 +82,18 @@ See `docs/flow.html` for the full system flow diagram.
 
 ---
 
+## <img src="https://img.shields.io/badge/-DWYOR-b91c1c?style=flat-square&logo=android&logoColor=white" alt="DWYOR" /> Do With Your Own Risk
+
+***Your warranty is now void. And probably your API ToS too.*** 
+
+I am not responsible for bricked devices, dead motherboards, blown up batteries, thermonuclear war, or your API keys and Cloud Storage accounts getting permanently banned by providers.
+
+Please do some research if you have any concerns about BMS bypassing, extreme Cgroups thermal throttling, or the "grey area" of using a **Multi-Account & Multi-Agent Router** to bypass rate limits before implementing this stack. **YOU** are choosing to make these physical and software modifications. If you point the finger at me for messing up your device or getting your free-tier API accounts revoked, I will laugh at you.
+
+**Provided "AS IS", strictly for educational and extreme edge-computing research.**
+
+---
+
 ## About
 
 **Muhammad Saifulloh** — aka [renagge39](https://github.com/saiflll)

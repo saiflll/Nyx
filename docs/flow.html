@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Brain v2 Flow</title>
+    <title>nyxCore Flow</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0d1117; color: #c9d1d9; margin: 0; padding: 2rem; }
         .container { max-width: 1200px; margin: 0 auto; }
-        h1 { border-bottom: 1px solid #30363d; padding-bottom: 0.5rem; }
-        .mermaid { margin-top: 2rem; background: #161b22; padding: 2rem; border-radius: 6px; border: 1px solid #30363d; }
+        h1 { border-bottom: 1px solid #1f2937; padding-bottom: 0.5rem; }
+        .mermaid { margin-top: 2rem; background: #111827; padding: 2rem; border-radius: 6px; border: 1px solid #1f2937; }
     </style>
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
@@ -17,7 +17,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Arsitektur Digital Brain v2</h1>
+        <h1>Arsitektur nyxCore</h1>
         <p>Diagram di bawah merepresentasikan interaksi antar service, manajemen status job, dan isolasi CPU.</p>
         
         <div class="mermaid">
@@ -29,14 +29,14 @@
             end
             
             subgraph AI_Orchestrator[AI Orchestrator - Core 4-7]
-                Router[AI Router: State Machine]
+                Router[nyxAgent: State Machine]
                 Qwen[Qwen Local 1.5B]
                 ExternalAI[External APIs: Groq, Gemini...]
             end
             
             subgraph Core_Services[Core Services - Core 2-3]
                 Storage[Storage Manager]
-                Web[SvelteKit Interface]
+                Web[nyxUi]
             end
             
             subgraph Background_Workers[Background Workers - Core 0-1]
